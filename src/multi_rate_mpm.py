@@ -14,24 +14,15 @@ class MultiRateMPM(CollocatedSolver):
         super().__init__(max_particles, n_grid, vol_0)
 
         # Particle properties:
-        # self.theta_c_p = ti.field(dtype=ti.f64, shape=max_particles)
-        # self.theta_s_p = ti.field(dtype=ti.f64, shape=max_particles)
-        # self.lambda_p = ti.field(dtype=ti.f64, shape=max_particles)
-        # self.mu_0_p = ti.field(dtype=ti.f64, shape=max_particles)
-        # self.zeta_p = ti.field(dtype=ti.i32, shape=max_particles)
         self.FE_p = ti.Matrix.field(3, 3, dtype=ti.f64, shape=max_particles)
         self.JP_p = ti.field(dtype=ti.f64, shape=max_particles)
         self.C_p = ti.Matrix.field(3, 3, dtype=ti.f64, shape=max_particles)
         self.damage_p = ti.field(dtype=ti.f64, shape=max_particles)  # phase field for damage: 0 - damaged, 1 - intact
 
-        # cfl = 6.0
         cfl = 0.6
-
         # dt_water = cfl * self.dx / tm.sqrt(Water.Lambda)
         dt_water = cfl * self.dx / tm.sqrt(Ice.Lambda)
         dt_solid = cfl * self.dx / tm.sqrt(2 * Ice.Mu + Ice.Lambda)
-        # dt_water = 1e-3
-        # dt_solid = 1e-4
         print(f"dt_water: {dt_water:<.2E}, dt_solid: {dt_solid:<.2E}")
         self.dt[None] = dt_water
 
@@ -44,7 +35,6 @@ class MultiRateMPM(CollocatedSolver):
         self.sigma_max = ti.field(dtype=ti.f64, shape=())
         self.sig_y_0 = 0.005
 
-        # self.temperature_c = ti.field(dtype=ti.f64, shape=(self.wx, self.wy, self.wz), offset=self.w_offset)
         w_shape1 = (self.wx, self.wy, self.wz)
         w_offset1 = (-self.boundary_width, -self.boundary_width, -self.boundary_width)
         w_shape2 = (2, self.wx, self.wy, self.wz)
@@ -61,16 +51,11 @@ class MultiRateMPM(CollocatedSolver):
         # Seed from the geometry and given position:
         self.velocity_p[index] = geometry.velocity
         self.position_p[index] = position
-        # self.theta_c_p[index] = geometry.material.Theta_c
-        # self.theta_s_p[index] = geometry.material.Theta_s
-        # self.lambda_p[index] = geometry.material.Lambda
         self.color_p[index] = geometry.material.Color
         self.phase_p[index] = geometry.phase
-        # self.zeta_p[index] = geometry.material.Zeta
-        # self.mu_0_p[index] = geometry.material.Mu
 
         # Set properties to default values:
-        self.mass_p[index] = self.vol_0_p # TODO: this is using density = 1.0 right now
+        self.mass_p[index] = self.vol_0_p  # TODO: this is using density = 1.0 right now
         # self.mass_p[index] = self.vol_0_p * geometry.density
         self.FE_p[index] = ti.Matrix.identity(ti.f64, 3)
         self.JP_p[index] = 1.0
@@ -85,20 +70,9 @@ class MultiRateMPM(CollocatedSolver):
         self.position_p.fill([42, 42] if self.d == 2 else [42, 42, 42])
         self.n_particles[None] = 0
 
-    @ti.kernel
-    def reset_block_mark(self):
-        self.Mblock.fill(0)
-
     # @ti.kernel
-    # def reset_grids(self):
-    #     for i, j, k in self.mass_c:
-    #         self.velocity_c[i, j, k] = 0
-    #         self.mass_c[i, j, k] = 0
-    #
-    #     for p in ti.ndrange(self.n_particles[None]):
-    #         self.damage_p[p] = 1
-    #
-    #     self.sigma_max[None] = 0
+    # def reset_block_mark(self):
+    #     self.Mblock.fill(0)
 
     @ti.kernel
     def reset_grids(self):
@@ -169,31 +143,6 @@ class MultiRateMPM(CollocatedSolver):
                 if sig_max > 0.02:
                     self.damage_p[p] = tm.max(0, tm.min(self.damage_p[p], 1.0 + 200.0 * (1.0 - sig_max / 0.02)))  # simple damage model
 
-            # # Clamp singular values to apply plasticity:
-            # U, sigma, V = ti.svd(self.FE_p[p])
-            # JE = 1.0
-            # for d in ti.static(range(3)):
-            #     singular_value = float(sigma[d, d])
-            #     singular_value = max(singular_value, 1 - self.theta_c_p[p])
-            #     singular_value = min(singular_value, 1 + self.theta_s_p[p])
-            #     self.JP_p[p] *= sigma[d, d] / singular_value
-            #     sigma[d, d] = singular_value
-            #     JE *= singular_value
-
-            # # Reconstruct elastic deformation gradient after plasticity
-            # self.FE_p[p] = U @ sigma @ V.transpose()
-
-            # # Apply snow stran hardening by adjusting Lame parameters
-            # h = ti.max(0.1, ti.min(20, ti.exp(self.zeta_p[p] * (1.0 - self.JP_p[p]))))
-            # mu, la = self.mu_0_p[p] * h, self.lambda_p[p] * h
-
-            # # Compute Piola-Kirchhoff stress P(F), (JST16, Eqn. 52)
-            # piola_kirchhoff = 2 * mu * (self.FE_p[p] - U @ V.transpose()) @ self.FE_p[p].transpose()  # pyright: ignore
-            # piola_kirchhoff += ti.Matrix.identity(float, 3) * la * JE * (JE - 1)
-
-            # # Cauchy stress times dt and D_inv
-            # cauchy_stress = -self.dt[None] * self.vol_0_p * 4 * self.inv_dx * self.inv_dx * piola_kirchhoff
-
             # APIC momentum + MLS-MPM stress contribution [Hu et al. 2018, Eqn. 29].
             affine = stress + self.mass_p[p] * self.C_p[p]
 
@@ -229,22 +178,6 @@ class MultiRateMPM(CollocatedSolver):
                 # self.grids_m[mat_id, base[0] + i, base[1] + j, base[2] + k] += weight * mass_p
                 # self.grids_n[mat_id, base[0] + i, base[1] + j, base[2] + k] += weight * mass_p * ti.Vector([wd[i][0], wd[j][1], wd[k][2]]).normalized()
 
-    # @ti.kernel
-    # def momentum_to_velocity(self):
-    #     for i, j, k in self.mass_c:
-    #         # Normalize velocity, add gravity:
-    #         if self.mass_c[i, j, k] > 0:
-    #             self.velocity_c[i, j, k] /= self.mass_c[i, j, k]
-    #             self.velocity_c[i, j, k][1] += self.dt[None] * self.gravity[None]
-    #
-    #         # Free-slip simulation boundary:
-    #         if i < 0 or i > self.n_grid:
-    #             self.velocity_c[i, j, k][0] = 0
-    #         if j < 0 or j > self.n_grid:
-    #             self.velocity_c[i, j, k][1] = 0
-    #         if k < 0 or k > self.n_grid:
-    #             self.velocity_c[i, j, k][2] = 0
-
     @ti.kernel
     def grid_op(self):
         for i, j, k in ti.ndrange(self.wx, self.wy, self.wz):
@@ -270,25 +203,12 @@ class MultiRateMPM(CollocatedSolver):
                     self.grids_v[n, i, j, k] = self.grids_v[n, i, j, k] / self.grids_m[n, i, j, k]
                     self.grids_v[n, i, j, k] += self.dt[None] * self.gravity[None]  # gravity
 
-                    # if i < 0 and self.grids_v[n, i, j, k][0] < 0:
-                    #     self.grids_v[n, i, j, k][0] = 0  # Boundary conditions
-                    # if i > self.n_grid and self.grids_v[n, i, j, k][0] > 0:
-                    #     self.grids_v[n, i, j, k][0] = 0
-                    # if j < 0 and self.grids_v[n, i, j, k][1] < 0:
-                    #     self.grids_v[n, i, j, k][1] = 0
-                    # if j > self.n_grid and self.grids_v[n, i, j, k][1] > 0:
-                    #     self.grids_v[n, i, j, k][1] = 0
-                    # if k < 0 and self.grids_v[n, i, j, k][2] < 0:
-                    #     self.grids_v[n, i, j, k][2] = 0
-                    # if k > self.n_grid and self.grids_v[n, i, j, k][2] > 0:
-                    #     self.grids_v[n, i, j, k][2] = 0
-
-                    if i < 0 or i >= self.n_grid:
-                        self.grids_v[n, i, j, k][0] = 0
-                    if j < 0 or j >= self.n_grid:
-                        self.grids_v[n, i, j, k][1] = 0
-                    if k < 0 or k >= self.n_grid:
-                        self.grids_v[n, i, j, k][2] = 0
+                if i < 0 or i >= self.n_grid:
+                    self.grids_v[n, i, j, k][0] = 0
+                if j < 0 or j >= self.n_grid:
+                    self.grids_v[n, i, j, k][1] = 0
+                if k < 0 or k >= self.n_grid:
+                    self.grids_v[n, i, j, k][2] = 0
 
     @ti.kernel
     def grid_to_particle(self):

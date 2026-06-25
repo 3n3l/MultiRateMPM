@@ -3,109 +3,46 @@ from src.constants import Ice, Water
 
 mixed_presets = [
     Configuration(
-        name="Melting Ice Cube, Floating",
-        information="Ice -> Water",
         dt=3e-4,
+        name="Pool & Ice Cubes",
+        information="Water, Ice -> Water",
+        ambient_temperature=1.0,
+        boundary_temperature=1000.0,
         geometries=[
             Rectangle(
-                material=Ice,  # pyright: ignore
-                size=(0.15, 0.15, 0.15),
+                material=Water,  # pyright: ignore
+                size=(1.0, 0.05, 1.0),
                 velocity=(0, 0, 0),
-                lower_left=(0.425, 0.425, 0.425),
-                temperature=-10.0,
-            )
-        ],
-        ambient_temperature=100.0,
-        gravity=0.0,
-    ),
-    Configuration(
-        name="Melting Ice Ball, Floating",
-        information="Ice -> Water",
-        dt=3e-4,
-        geometries=[
-            Circle(
-                velocity=(0, 0, 0),
-                center=(0.5, 0.5, 0.5),
-                radius=0.1,
-                temperature=-10.0,
-                material=Ice,  # pyright: ignore
-            )
-        ],
-        ambient_temperature=100.0,
-        gravity=0.0,
-    ),
-    Configuration(
-        name="Melting Ice Ball",
-        information="Ice -> Water",
-        dt=3e-4,
-        geometries=[
-            Circle(
-                velocity=(0, 0, 0),
-                center=(0.5, 0.1, 0.5),
-                radius=0.1,
-                temperature=-10.0,
-                material=Ice,  # pyright: ignore
-            )
-        ],
-        ambient_temperature=100.0,
-        gravity=0.0,
-    ),
-    Configuration(
-        dt=3e-4,
-        name="Melting Ice Cube",
-        information="Ice -> Water",
-        ambient_temperature=100.0,
-        geometries=[
+                lower_left=(0, 0, 0),
+                frame_threshold=0,
+                temperature=100.0,
+            ),
             Rectangle(
                 material=Ice,  # pyright: ignore
-                size=(0.2, 0.21, 0.2),  # a bit higher to fit the grid better
-                velocity=(0, 0, 0),
-                lower_left=(0.4, 0.0, 0.4),
-                temperature=-10.0,
+                size=(0.08, 0.08, 0.08),
+                velocity=(0, -4, 0),
+                lower_left=(0.25, 0.55, 0.25),
+                frame_threshold=1,
+                temperature=-1.0,
+            ),
+            Rectangle(
+                material=Ice,  # pyright: ignore
+                size=(0.08, 0.08, 0.08),
+                velocity=(0, -4, 0),
+                lower_left=(0.45, 0.45, 0.5),
+                frame_threshold=21,
+                temperature=-1.0,
+            ),
+            Rectangle(
+                material=Ice,  # pyright: ignore
+                size=(0.08, 0.08, 0.08),
+                velocity=(0, -4, 0),
+                lower_left=(0.65, 0.35, 0.75),
+                frame_threshold=41,
+                temperature=-1.0,
             ),
         ],
     ),
-    # Configuration(
-    #     dt=3e-4,
-    #     name="Pool & Ice Cubes",
-    #     information="Water, Ice -> Water",
-    #     ambient_temperature=1.0,
-    #     boundary_temperature=1000.0,
-    #     geometries=[
-    #         Rectangle(
-    #             material=Water,  # pyright: ignore
-    #             size=(1.0, 0.3),
-    #             velocity=(0, 0),
-    #             lower_left=(0, 0),
-    #             frame_threshold=0,
-    #             temperature=100.0,
-    #         ),
-    #         Rectangle(
-    #             material=Ice,  # pyright: ignore
-    #             size=(0.08, 0.08),
-    #             velocity=(0, -4),
-    #             lower_left=(0.25, 0.75),
-    #             frame_threshold=1,
-    #             temperature=-1.0,
-    #         ),
-    #         Rectangle(
-    #             material=Ice,  # pyright: ignore
-    #             size=(0.08, 0.08),
-    #             velocity=(0, -4),
-    #             lower_left=(0.45, 0.55),
-    #             frame_threshold=51,
-    #             temperature=-1.0,
-    #         ),
-    #         Rectangle(
-    #             material=Ice,  # pyright: ignore
-    #             size=(0.08, 0.08),
-    #             velocity=(0, -4),
-    #             lower_left=(0.65, 0.65),
-    #             frame_threshold=101,
-    #             temperature=-1.0,
-    #         ),
-    #     ],
-    # ),
     # Configuration(
     #     dt=1e-3,
     #     name="Freezing Pool",

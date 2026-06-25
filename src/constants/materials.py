@@ -50,9 +50,3 @@ class Ice(Material):
     Phase = 1
     Lambda = (E * nu) / ((1 + nu) * (1 - 2 * nu))
     Mu = E / (2 * (1 + nu))
-
-    # Zeta: int = 20
-    # Theta_s: float = 5.5e-3
-    # Theta_c: float = 8.5e-2
-    # Theta_s: float = 5.5e-3
-    # Theta_c: float = 8.5e-2
